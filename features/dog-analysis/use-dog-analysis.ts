@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ACCEPTED_IMAGE_TYPES, MAX_IMAGE_SIZE } from "./constants";
-import type { AnalysisState, DogAnalysis } from "./types";
+import { dogAnalysisSchema, type AnalysisState, type DogAnalysis } from "./types";
 
 const resultCache = new Map<string, DogAnalysis>();
+const CACHE_PREFIX = "dog-mind:analysis:";
 
 const SAMPLE_ANALYSIS: DogAnalysis = {
   isDog: true,
@@ -25,6 +26,35 @@ async function imageCacheKey(file: File) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function readCachedAnalysis(cacheKey: string) {
+  const memoryValue = resultCache.get(cacheKey);
+  if (memoryValue) return memoryValue;
+  try {
+    const raw = window.sessionStorage.getItem(`${CACHE_PREFIX}${cacheKey}`);
+    if (!raw) return null;
+    const parsed = dogAnalysisSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) {
+      window.sessionStorage.removeItem(`${CACHE_PREFIX}${cacheKey}`);
+      return null;
+    }
+    resultCache.set(cacheKey, parsed.data);
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function cacheAnalysis(cacheKey: string, value: unknown) {
+  const parsed = dogAnalysisSchema.parse(value);
+  resultCache.set(cacheKey, parsed);
+  try {
+    window.sessionStorage.setItem(`${CACHE_PREFIX}${cacheKey}`, JSON.stringify(parsed));
+  } catch {
+    // Memory caching still works when browser storage is unavailable or full.
+  }
+  return parsed;
+}
+
 const INITIAL_STATE = {
   file: null,
   previewUrl: "",
@@ -42,6 +72,8 @@ export function useDogAnalysis() {
   const [error, setError] = useState(INITIAL_STATE.error);
   const [retryAfter, setRetryAfter] = useState(0);
   const [result, setResult] = useState<DogAnalysis | null>(INITIAL_STATE.result);
+  const generationRef = useRef(0);
+  const requestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (status !== "analyzing") return;
@@ -55,6 +87,8 @@ export function useDogAnalysis() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
 
+  useEffect(() => () => requestRef.current?.abort(), []);
+
   useEffect(() => {
     if (retryAfter <= 0) return;
     const timer = window.setInterval(() => {
@@ -64,6 +98,9 @@ export function useDogAnalysis() {
   }, [retryAfter]);
 
   const reset = useCallback(() => {
+    generationRef.current += 1;
+    requestRef.current?.abort();
+    requestRef.current = null;
     setPreviewUrl((currentUrl) => {
       if (currentUrl) URL.revokeObjectURL(currentUrl);
       return "";
@@ -78,6 +115,9 @@ export function useDogAnalysis() {
 
   const selectFile = useCallback((nextFile?: File) => {
     if (!nextFile) return;
+    generationRef.current += 1;
+    requestRef.current?.abort();
+    requestRef.current = null;
     setError("");
     setRetryAfter(0);
 
@@ -104,6 +144,11 @@ export function useDogAnalysis() {
 
   const analyze = useCallback(async () => {
     if (!file) return;
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    const generation = ++generationRef.current;
+    const isCurrent = () => generationRef.current === generation && !controller.signal.aborted;
     setStatus("analyzing");
     setProgress(8);
     setError("");
@@ -113,15 +158,18 @@ export function useDogAnalysis() {
 
     try {
       const cacheKey = await imageCacheKey(file);
-      const cached = resultCache.get(cacheKey);
+      if (!isCurrent()) return;
+      const cached = readCachedAnalysis(cacheKey);
       if (cached) {
+        if (!isCurrent()) return;
         setProgress(100);
         setResult(cached);
         setStatus("complete");
         return;
       }
-      const response = await fetch("/api/analyze", { method: "POST", body });
+      const response = await fetch("/api/analyze", { method: "POST", body, signal: controller.signal });
       const data = await response.json();
+      if (!isCurrent()) return;
       if (!response.ok) {
         setRetryAfter(typeof data.retryAfter === "number" ? Math.max(0, Math.ceil(data.retryAfter)) : 0);
         throw new Error(data.error || "We couldn’t read that photo.");
@@ -129,16 +177,24 @@ export function useDogAnalysis() {
 
       setProgress(100);
       await new Promise((resolve) => window.setTimeout(resolve, 450));
-      resultCache.set(cacheKey, data as DogAnalysis);
-      setResult(data as DogAnalysis);
+      if (!isCurrent()) return;
+      const validated = cacheAnalysis(cacheKey, data);
+      if (!isCurrent()) return;
+      setResult(validated);
       setStatus("complete");
     } catch (cause) {
+      if (!isCurrent() || (cause instanceof DOMException && cause.name === "AbortError")) return;
       setError(cause instanceof Error ? cause.message : "Something went wrong. Please try again.");
       setStatus("error");
+    } finally {
+      if (requestRef.current === controller) requestRef.current = null;
     }
   }, [file]);
 
   const trySample = useCallback(() => {
+    generationRef.current += 1;
+    requestRef.current?.abort();
+    requestRef.current = null;
     setPreviewUrl((currentUrl) => {
       if (currentUrl?.startsWith("blob:")) URL.revokeObjectURL(currentUrl);
       return "/unsplash-dog.jpg";

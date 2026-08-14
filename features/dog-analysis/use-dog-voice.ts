@@ -5,6 +5,17 @@ import type { VoiceStyle } from "./types";
 
 type VoiceState = "idle" | "loading" | "ready" | "error";
 const audioCache = new Map<string, Blob>();
+const MAX_AUDIO_CACHE_ENTRIES = 12;
+
+function storeAudio(cacheKey: string, blob: Blob) {
+  audioCache.delete(cacheKey);
+  audioCache.set(cacheKey, blob);
+  while (audioCache.size > MAX_AUDIO_CACHE_ENTRIES) {
+    const oldestKey = audioCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    audioCache.delete(oldestKey);
+  }
+}
 
 export function useDogVoice(text: string, voiceStyle: VoiceStyle) {
   const [state, setState] = useState<VoiceState>("idle");
@@ -29,6 +40,8 @@ export function useDogVoice(text: string, voiceStyle: VoiceStyle) {
       const cacheKey = `${voiceStyle}:${text}`;
       const cached = !force ? audioCache.get(cacheKey) : undefined;
       if (cached) {
+        audioCache.delete(cacheKey);
+        audioCache.set(cacheKey, cached);
         setAudioUrl(URL.createObjectURL(cached));
         setState("ready");
         return;
@@ -44,7 +57,7 @@ export function useDogVoice(text: string, voiceStyle: VoiceStyle) {
       }
 
       const blob = await response.blob();
-      audioCache.set(cacheKey, blob);
+      storeAudio(cacheKey, blob);
       const url = URL.createObjectURL(blob);
       setAudioUrl(url);
       setState("ready");

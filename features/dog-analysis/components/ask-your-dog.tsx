@@ -1,31 +1,60 @@
 "use client";
 
 import { MessageCircle, RotateCcw, Send } from "lucide-react";
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import type { DogAnalysis } from "../types";
 import { VoicePlayer } from "./voice-player";
 
 const suggestions = ["Do you want a walk?", "Who is your favorite human?", "Why are you staring at me?"];
 const QUESTION_LIMIT = 3;
 
+function conversationStorageKey(analysis: DogAnalysis) {
+  return `dog-mind:conversation:${analysis.breedGuess}:${analysis.mood}:${analysis.thought}`;
+}
+
 export function AskYourDog({ analysis }: { analysis: DogAnalysis }) {
   const [question, setQuestion] = useState(""); const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false); const [error, setError] = useState("");
   const [questionsAsked, setQuestionsAsked] = useState(0);
+  const [retryAfter, setRetryAfter] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
+  const conversationIdRef = useRef("");
+  useEffect(() => {
+    const storageKey = conversationStorageKey(analysis);
+    try {
+      const existing = window.localStorage.getItem(storageKey);
+      const id = existing ?? crypto.randomUUID();
+      if (!existing) window.localStorage.setItem(storageKey, id);
+      conversationIdRef.current = id;
+    } catch {
+      conversationIdRef.current = crypto.randomUUID();
+    }
+  }, [analysis]);
+  useEffect(() => {
+    if (retryAfter <= 0) return;
+    const timer = window.setInterval(() => setRetryAfter((seconds) => Math.max(0, seconds - 1)), 1_000);
+    return () => window.clearInterval(timer);
+  }, [retryAfter]);
   async function ask(event: FormEvent) {
-    event.preventDefault(); if (!question.trim() || loading || questionsAsked >= QUESTION_LIMIT) return;
+    event.preventDefault(); if (!question.trim() || !conversationIdRef.current || loading || retryAfter > 0 || questionsAsked >= QUESTION_LIMIT) return;
     setLoading(true); setError(""); setAnswer("");
     try {
-      const response = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, dog: { breedGuess: analysis.breedGuess, mood: analysis.mood, thought: analysis.thought } }) });
-      const data = await response.json(); if (!response.ok) throw new Error(data.error || "Dog chat failed."); setAnswer(data.answer); setQuestionsAsked((count) => count + 1); setQuestion("");
+      const response = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, conversationId: conversationIdRef.current, dog: { breedGuess: analysis.breedGuess, mood: analysis.mood, thought: analysis.thought } }) });
+      const data = await response.json();
+      if (!response.ok) {
+        const headerDelay = Number.parseInt(response.headers.get("Retry-After") ?? "", 10);
+        const bodyDelay = typeof data.retryAfter === "number" ? Math.ceil(data.retryAfter) : 0;
+        setRetryAfter(Math.max(0, bodyDelay, Number.isFinite(headerDelay) ? headerDelay : 0));
+        throw new Error(data.error || "Dog chat failed.");
+      }
+      setRetryAfter(0); setAnswer(data.answer); setQuestionsAsked((count) => count + 1); setQuestion("");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Dog chat failed."); } finally { setLoading(false); }
   }
   const remaining = QUESTION_LIMIT - questionsAsked;
   return <section className="ask-dog"><header><MessageCircle size={18} /><div><strong>Ask your dog</strong><span>{remaining > 0 ? `${remaining} question${remaining === 1 ? "" : "s"} remaining` : "Question limit reached"}</span></div></header>
     {remaining > 0 && <><div className="question-chips">{suggestions.map((item) => <button type="button" key={item} onClick={() => setQuestion(item)}>{item}</button>)}</div>
-    <form ref={formRef} onSubmit={ask}><input value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={160} placeholder="Ask one very important dog question…" aria-label="Question for your dog"/><button disabled={loading || !question.trim()} aria-label="Ask question"><Send size={17}/></button></form></>}
-    {loading && <p className="dog-reply loading-reply">Consulting the pup…</p>}{error && <div className="inline-error" role="alert"><p className="voice-error">{error}</p><button type="button" className="voice-retry" onClick={() => formRef.current?.requestSubmit()}><RotateCcw size={14}/> Try again</button></div>}
+    <form ref={formRef} onSubmit={ask}><input value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={160} placeholder="Ask one very important dog question…" aria-label="Question for your dog"/><button disabled={loading || retryAfter > 0 || !question.trim()} aria-label="Ask question"><Send size={17}/></button></form></>}
+    {loading && <p className="dog-reply loading-reply">Consulting the pup…</p>}{error && <div className="inline-error" role="alert"><p className="voice-error">{error}</p><button type="button" className="voice-retry" disabled={retryAfter > 0} onClick={() => formRef.current?.requestSubmit()}><RotateCcw size={14}/> {retryAfter > 0 ? `Try again in ${retryAfter}s` : "Try again"}</button></div>}
     {answer && <div className="dog-answer"><p>“{answer}”</p><VoicePlayer text={answer} voiceStyle={analysis.voiceStyle} breedGuess={analysis.breedGuess}/></div>}
   </section>;
 }

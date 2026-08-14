@@ -56,6 +56,6 @@ function VoiceControls({ text, voiceStyle }: { text: string; voiceStyle: VoiceSt
           {voice.state === "loading" ? "Finding the perfect dog voice…" : "Hear this dog’s voice"}
         </button>
       )}
-      {voice.error && <div className="inline-error" role="alert"><p className="voice-error">{voice.error}</p><button className="voice-retry" type="button" onClick={() => voice.generate()}><RotateCcw size={14} /> Retry voice</button></div>}
+      {voice.error && <div className="inline-error" role="alert"><p className="voice-error">{voice.error}</p><button className="voice-retry" type="button" onClick={() => voice.generate(true)}><RotateCcw size={14} /> Retry voice</button></div>}
     </>;
 }

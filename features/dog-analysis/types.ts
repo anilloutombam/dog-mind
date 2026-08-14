@@ -1,24 +1,28 @@
+import { z } from "zod";
+
 export const VOICE_STYLES = ["bright", "warm", "bold", "dramatic", "gentle", "gruff"] as const;
 
 export type VoiceStyle = (typeof VOICE_STYLES)[number];
 
-export type DogAnalysis = {
-  isDog: boolean;
-  breedGuess: string;
-  breedConfidence: number;
-  dogSize: "small" | "medium" | "large" | "unknown";
-  voiceStyle: VoiceStyle;
-  mood: string;
-  confidence: number;
-  signals: {
-    happiness: number;
-    energy: number;
-    mischief: number;
-  };
-  observations: string[];
-  thought: string;
-  summary: string;
-};
+export const dogAnalysisSchema = z.object({
+  isDog: z.boolean(),
+  breedGuess: z.string().trim().min(1).max(60),
+  breedConfidence: z.number().int().min(0).max(100),
+  dogSize: z.enum(["small", "medium", "large", "unknown"]),
+  voiceStyle: z.enum(VOICE_STYLES),
+  mood: z.string(),
+  confidence: z.number().min(0).max(100),
+  signals: z.object({
+    happiness: z.number().min(0).max(100),
+    energy: z.number().min(0).max(100),
+    mischief: z.number().min(0).max(100),
+  }),
+  observations: z.array(z.string()).max(5),
+  thought: z.string(),
+  summary: z.string(),
+});
+
+export type DogAnalysis = z.infer<typeof dogAnalysisSchema>;
 
 export type AnalysisState = "idle" | "ready" | "analyzing" | "complete" | "error";
 

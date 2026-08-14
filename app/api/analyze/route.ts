@@ -1,7 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import { VOICE_STYLES } from "@/features/dog-analysis/types";
+import { dogAnalysisSchema } from "@/features/dog-analysis/types";
 import { enforceRateLimit, geminiRateLimitResponse, requestId, safeApiError } from "@/lib/server/api-guard";
 import { ACCEPTED_SERVER_IMAGE_TYPES, hasValidImageSignature } from "@/lib/server/image-validation";
 
@@ -12,24 +11,6 @@ const ai = new GoogleGenAI({
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.6-flash";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
-
-const analysisSchema = z.object({
-  isDog: z.boolean(),
-  breedGuess: z.string().trim().min(1).max(60),
-  breedConfidence: z.number().int().min(0).max(100),
-  dogSize: z.enum(["small", "medium", "large", "unknown"]),
-  voiceStyle: z.enum(VOICE_STYLES),
-  mood: z.string(),
-  confidence: z.number().min(0).max(100),
-  signals: z.object({
-    happiness: z.number().min(0).max(100),
-    energy: z.number().min(0).max(100),
-    mischief: z.number().min(0).max(100),
-  }),
-  observations: z.array(z.string()).max(5),
-  thought: z.string(),
-  summary: z.string(),
-});
 
 export async function POST(request: Request) {
   const id = requestId();
@@ -125,7 +106,7 @@ Return JSON with:
       throw new Error("Gemini returned an empty response");
     }
 
-    const parsed = analysisSchema.parse(JSON.parse(response.text));
+    const parsed = dogAnalysisSchema.parse(JSON.parse(response.text));
 
     return NextResponse.json(parsed);
   } catch (error) {

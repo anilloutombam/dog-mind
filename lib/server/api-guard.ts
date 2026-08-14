@@ -45,12 +45,14 @@ type ProviderError = { status?: number; code?: number | string; message?: string
 export function geminiRateLimitResponse(error: unknown) {
   const candidate = error as ProviderError | null;
   const message = candidate?.message ?? "";
-  const isRateLimited = candidate?.status === 429 || candidate?.code === 429 || /429|resource_exhausted|rate limit|quota/i.test(message);
+  const status = String(candidate?.status ?? "").toUpperCase();
+  const code = String(candidate?.code ?? "").toUpperCase();
+  const isRateLimited = status === "429" || status === "RESOURCE_EXHAUSTED" || code === "429" || code === "RESOURCE_EXHAUSTED" || /429|resource_exhausted|rate limit|quota/i.test(message);
   if (!isRateLimited) return null;
 
   const rawHeader = candidate?.headers instanceof Headers
     ? candidate.headers.get("retry-after")
-    : candidate?.headers?.["retry-after"];
+    : Object.entries(candidate?.headers ?? {}).find(([name]) => name.toLowerCase() === "retry-after")?.[1];
   const messageDelay = message.match(/retry(?:Delay| after)?["':=\s]+(\d+)/i)?.[1];
   const retryAfter = Math.max(1, Number.parseInt(rawHeader ?? messageDelay ?? "30", 10) || 30);
 
