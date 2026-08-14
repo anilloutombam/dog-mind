@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { enforceRateLimit, requestId, safeApiError } from "@/lib/server/api-guard";
+import { enforceRateLimit, geminiRateLimitResponse, requestId, safeApiError } from "@/lib/server/api-guard";
 
 const schema = z.object({
   question: z.string().trim().min(2).max(160),
@@ -66,6 +66,8 @@ Return the required JSON fields. Keep "answer" under 180 characters.`,
     return NextResponse.json({ answer: answer.answer });
   } catch (error) {
     console.error("Dog follow-up failed", { requestId: id, error });
+    const rateLimited = geminiRateLimitResponse(error);
+    if (rateLimited) return rateLimited;
     return safeApiError("Your dog got distracted. Please ask again.", id);
   }
 }

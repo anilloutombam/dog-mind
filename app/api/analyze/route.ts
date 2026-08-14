@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { VOICE_STYLES } from "@/features/dog-analysis/types";
-import { enforceRateLimit, requestId, safeApiError } from "@/lib/server/api-guard";
+import { enforceRateLimit, geminiRateLimitResponse, requestId, safeApiError } from "@/lib/server/api-guard";
 import { ACCEPTED_SERVER_IMAGE_TYPES, hasValidImageSignature } from "@/lib/server/image-validation";
 
 const ai = new GoogleGenAI({
@@ -130,6 +130,8 @@ Return JSON with:
     return NextResponse.json(parsed);
   } catch (error) {
     console.error("Dog analysis failed", { requestId: id, error });
+    const rateLimited = geminiRateLimitResponse(error);
+    if (rateLimited) return rateLimited;
     return safeApiError("We couldn't analyze this image. Please try again.", id);
   }
 }

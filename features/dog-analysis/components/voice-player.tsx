@@ -46,16 +46,16 @@ function VoiceControls({ text, voiceStyle }: { text: string; voiceStyle: VoiceSt
       {voice.state === "ready" && voice.audioUrl ? (
         <>
           <audio ref={audioRef} src={voice.audioUrl} controls preload="metadata" />
-          <button className="voice-retry" type="button" onClick={voice.generate} aria-label="Generate the voice again">
+          <button className="voice-retry" type="button" onClick={() => voice.generate(true)} aria-label="Generate the voice again">
             <RotateCcw size={15} /> New take
           </button>
         </>
       ) : (
-        <button className="voice-button" type="button" onClick={voice.generate} disabled={voice.state === "loading"}>
+        <button className="voice-button" type="button" onClick={() => voice.generate()} disabled={voice.state === "loading"}>
           {voice.state === "loading" ? <LoaderCircle className="voice-spinner" size={18} /> : <Volume2 size={18} />}
           {voice.state === "loading" ? "Finding the perfect dog voice…" : "Hear this dog’s voice"}
         </button>
       )}
-      {voice.error && <p className="voice-error" role="alert">{voice.error}</p>}
+      {voice.error && <div className="inline-error" role="alert"><p className="voice-error">{voice.error}</p><button className="voice-retry" type="button" onClick={() => voice.generate()}><RotateCcw size={14} /> Retry voice</button></div>}
     </>;
 }
