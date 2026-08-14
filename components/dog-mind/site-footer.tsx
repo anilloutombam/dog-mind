@@ -1,5 +1,5 @@
 import { PawPrint } from "lucide-react";
 
 export function SiteFooter() {
-  return <footer><span><PawPrint size={14} /> 100% privacy friendly · Your photos are not stored <PawPrint size={14} /></span></footer>;
+  return <footer><span><PawPrint size={14} /> Photos aren’t stored by Dog Mind · Analysis is processed by Google AI <PawPrint size={14} /></span></footer>;
 }

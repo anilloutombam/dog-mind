@@ -1,6 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { VOICE_STYLES } from "@/features/dog-analysis/types";
+import { enforceRateLimit, requestId, safeApiError } from "@/lib/server/api-guard";
+import { ACCEPTED_SERVER_IMAGE_TYPES, hasValidImageSignature } from "@/lib/server/image-validation";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -10,14 +13,12 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.6-flash";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-const allowedTypes = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-]);
-
 const analysisSchema = z.object({
   isDog: z.boolean(),
+  breedGuess: z.string().trim().min(1).max(60),
+  breedConfidence: z.number().int().min(0).max(100),
+  dogSize: z.enum(["small", "medium", "large", "unknown"]),
+  voiceStyle: z.enum(VOICE_STYLES),
   mood: z.string(),
   confidence: z.number().min(0).max(100),
   signals: z.object({
@@ -31,7 +32,10 @@ const analysisSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const id = requestId();
   try {
+    const rateLimited = enforceRateLimit(request, "analyze", 8);
+    if (rateLimited) return rateLimited;
     const formData = await request.formData();
     const file = formData.get("image");
 
@@ -42,7 +46,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!allowedTypes.has(file.type)) {
+    if (!ACCEPTED_SERVER_IMAGE_TYPES.has(file.type)) {
       return NextResponse.json(
         { error: "Only JPEG, PNG and WebP images are supported." },
         { status: 400 }
@@ -57,6 +61,9 @@ export async function POST(request: Request) {
     }
 
     const bytes = await file.arrayBuffer();
+    if (!hasValidImageSignature(file.type, new Uint8Array(bytes))) {
+      return NextResponse.json({ error: "That file does not appear to be a valid image." }, { status: 400 });
+    }
     const base64 = Buffer.from(bytes).toString("base64");
 
     const response = await ai.models.generateContent({
@@ -80,11 +87,20 @@ First determine whether the primary subject is a dog.
 If it is a dog, interpret only clearly visible body-language
 signals. Do not make medical or veterinary claims.
 
+Make a cautious visual breed guess. Use "Mixed or unknown" when the
+image is ambiguous. Choose one voice style inspired by the dog's
+visible size, expression, and energy—not as a scientific claim:
+bright, warm, bold, dramatic, gentle, or gruff.
+
 Also create a short, funny, family-friendly imaginary inner
 monologue for the dog.
 
 Return JSON with:
 - isDog: boolean
+- breedGuess: short likely breed/type, or "Mixed or unknown"
+- breedConfidence: integer 0-100 (0 when the subject is not a dog)
+- dogSize: "small", "medium", "large", or "unknown"
+- voiceStyle: "bright", "warm", "bold", "dramatic", "gentle", or "gruff"
 - mood: string
 - confidence: integer 0-100
 - signals:
@@ -101,6 +117,7 @@ Return JSON with:
       ],
       config: {
         responseMimeType: "application/json",
+        abortSignal: AbortSignal.timeout(25_000),
       },
     });
 
@@ -112,11 +129,7 @@ Return JSON with:
 
     return NextResponse.json(parsed);
   } catch (error) {
-    console.error("Dog analysis failed:", error);
-
-    return NextResponse.json(
-      { error: "We couldn't analyze this image. Please try again." },
-      { status: 500 }
-    );
+    console.error("Dog analysis failed", { requestId: id, error });
+    return safeApiError("We couldn't analyze this image. Please try again.", id);
   }
 }

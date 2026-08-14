@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { VoiceStyle } from "./types";
 
 type VoiceState = "idle" | "loading" | "ready" | "error";
 
-export function useDogVoice(text: string) {
+export function useDogVoice(text: string, voiceStyle: VoiceStyle) {
   const [state, setState] = useState<VoiceState>("idle");
   const [audioUrl, setAudioUrl] = useState("");
   const [error, setError] = useState("");
@@ -17,7 +18,6 @@ export function useDogVoice(text: string) {
   }, []);
 
   useEffect(() => () => clearAudio(), [clearAudio]);
-
   const generate = useCallback(async () => {
     if (state === "loading") return;
     setState("loading");
@@ -28,7 +28,7 @@ export function useDogVoice(text: string) {
       const response = await fetch("/api/speak", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, voiceStyle }),
       });
       if (!response.ok) {
         const data = await response.json().catch(() => null);
@@ -42,7 +42,7 @@ export function useDogVoice(text: string) {
       setError(cause instanceof Error ? cause.message : "Voice generation failed.");
       setState("error");
     }
-  }, [clearAudio, state, text]);
+  }, [clearAudio, state, text, voiceStyle]);
 
   return { state, audioUrl, error, generate };
 }
