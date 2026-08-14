@@ -12,7 +12,9 @@ export function DogAnalysisWorkspace() {
       <UploadPanel
         hasFile={Boolean(analysis.file)} fileName={analysis.file?.name} previewUrl={analysis.previewUrl} status={analysis.status}
         progress={analysis.progress} error={analysis.error} result={analysis.result}
+        retryAfter={analysis.retryAfter}
         onSelect={analysis.selectFile} onAnalyze={analysis.analyze} onReset={analysis.reset}
+        onTrySample={analysis.trySample}
       />
       {analysis.status === "analyzing" && <div className="analysis-panel">
         <AnalyzingCard progress={analysis.progress} />

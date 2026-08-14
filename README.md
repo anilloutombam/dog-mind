@@ -9,6 +9,7 @@ The experience is designed as a polished, responsive upload flow with image vali
 ## Features
 
 - Drag-and-drop or file-picker image uploads
+- Instant pre-generated “Try a sample dog” experience
 - Full-image previews without cropping
 - JPEG, PNG, and WebP validation
 - 5 MB upload limit
@@ -22,6 +23,10 @@ The experience is designed as a polished, responsive upload flow with image vali
 - Downloadable or native-shareable result cards
 - Duplicate share/export protection across rapid taps and component rerenders
 - Friendly handling for non-dog images and API errors
+- Friendly Gemini capacity messages with a live retry countdown and disabled retry controls during cooldown
+- Three-question limit for each “Ask your dog” conversation
+- Same-image analysis caching during the browser session
+- Reuse of generated voice audio, with an optional fresh “New take”
 - Responsive desktop and mobile layouts
 - Reduced-motion accessibility support
 - Server-only API credentials
