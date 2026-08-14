@@ -1,4 +1,4 @@
-import { BrainCircuit, Eye, Sparkles } from "lucide-react";
+import { BrainCircuit, Heart, ImageUp, MessageCircle, ScanSearch } from "lucide-react";
 import type { AnalysisStep } from "./types";
 
 export const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -6,13 +6,17 @@ export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as
 export const IMAGE_ACCEPT_ATTRIBUTE = ACCEPTED_IMAGE_TYPES.join(",");
 
 export const ANALYSIS_STEPS: AnalysisStep[] = [
-  { title: "Scanning the scene", detail: "Finding your pup", icon: Eye },
-  { title: "Reading body language", detail: "Ears, eyes & posture", icon: BrainCircuit },
-  { title: "Decoding the vibe", detail: "Translating dog energy", icon: Sparkles },
+  { title: "Image uploaded", detail: "", icon: ImageUp },
+  { title: "Detecting dog", detail: "", icon: ScanSearch },
+  { title: "Analyzing body language", detail: "", icon: BrainCircuit },
+  { title: "Reading the mood", detail: "", icon: Heart },
+  { title: "Generating dog thoughts", detail: "", icon: MessageCircle },
 ];
 
 export function getActiveStep(progress: number) {
-  if (progress < 34) return 0;
-  if (progress < 70) return 1;
-  return 2;
+  if (progress < 18) return 0;
+  if (progress < 36) return 1;
+  if (progress < 64) return 2;
+  if (progress < 86) return 3;
+  return 4;
 }

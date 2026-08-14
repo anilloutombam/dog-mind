@@ -6,6 +6,8 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.6-flash";
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 const allowedTypes = new Set([
@@ -58,7 +60,7 @@ export async function POST(request: Request) {
     const base64 = Buffer.from(bytes).toString("base64");
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: GEMINI_MODEL,
       contents: [
         {
           role: "user",

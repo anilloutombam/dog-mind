@@ -1,5 +1,5 @@
 import { PawPrint } from "lucide-react";
 
 export function SiteFooter() {
-  return <footer><span><PawPrint size={15} /> Made for dogs and the humans who love them.</span><span>For fun, not veterinary advice.</span></footer>;
+  return <footer><span><PawPrint size={14} /> 100% privacy friendly · Your photos are not stored <PawPrint size={14} /></span></footer>;
 }

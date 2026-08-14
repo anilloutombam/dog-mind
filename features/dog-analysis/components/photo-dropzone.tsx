@@ -1,11 +1,12 @@
-import { Check, ImagePlus, UploadCloud, X } from "lucide-react";
+import Image from "next/image";
+import { FolderOpen, Trash2 } from "lucide-react";
 import { ChangeEvent, DragEvent, KeyboardEvent, useRef, useState } from "react";
 import { IMAGE_ACCEPT_ATTRIBUTE } from "../constants";
 import { UploadedImage } from "./uploaded-image";
 
-type PhotoDropzoneProps = { previewUrl: string; onSelect: (file?: File) => void; onRemove: () => void };
+type PhotoDropzoneProps = { fileName?: string; previewUrl: string; onSelect: (file?: File) => void; onRemove: () => void };
 
-export function PhotoDropzone({ previewUrl, onSelect, onRemove }: PhotoDropzoneProps) {
+export function PhotoDropzone({ fileName, previewUrl, onSelect, onRemove }: PhotoDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const openPicker = () => inputRef.current?.click();
@@ -33,19 +34,20 @@ export function PhotoDropzone({ previewUrl, onSelect, onRemove }: PhotoDropzoneP
       role="button" tabIndex={0} onKeyDown={handleKeyboard}
     >
       <input ref={inputRef} type="file" accept={IMAGE_ACCEPT_ATTRIBUTE} onChange={handleInput} hidden />
-      {previewUrl ? (
-        <div className="preview-wrap">
-          <UploadedImage src={previewUrl} alt="Selected dog preview" />
-          <button className="remove-photo" onClick={(event) => { event.stopPropagation(); onRemove(); }} aria-label="Remove photo"><X size={17} /></button>
-          <div className="preview-caption"><Check size={15} /> Looking good!</div>
-        </div>
-      ) : (
+      <div className="dropzone-main">
         <div className="drop-content">
-          <div className="upload-icon"><UploadCloud size={30} /></div>
-          <h3>Drop your best dog photo here</h3><p>or click to browse your files</p>
-          <button className="choose-button" type="button"><ImagePlus size={17} /> Choose a photo</button>
+          <div className="upload-icon"><Image src="/upload-cloud.png" alt="" width={140} height={140} /></div>
+          <h3>Drop your dog’s photo here</h3><p>or <strong>click to browse</strong></p>
+          <small>JPG, PNG, WEBP up to 5MB</small>
+          <button className="choose-button" type="button"><FolderOpen size={17} /> Choose File</button>
         </div>
-      )}
+      </div>
+      {previewUrl && <div className="preview-wrap" onClick={(event) => event.stopPropagation()}>
+        <div className="preview-image"><UploadedImage src={previewUrl} alt="Selected dog preview" /><span>✓</span></div>
+        <strong>{fileName || "Ready to analyze"}</strong>
+        <small>Photo selected</small>
+        <button className="remove-photo" onClick={onRemove} aria-label="Remove photo"><Trash2 size={14} /> Remove</button>
+      </div>}
     </div>
   );
 }
