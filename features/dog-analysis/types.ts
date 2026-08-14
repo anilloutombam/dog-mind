@@ -10,16 +10,16 @@ export const dogAnalysisSchema = z.object({
   breedConfidence: z.number().int().min(0).max(100),
   dogSize: z.enum(["small", "medium", "large", "unknown"]),
   voiceStyle: z.enum(VOICE_STYLES),
-  mood: z.string(),
-  confidence: z.number().min(0).max(100),
+  mood: z.string().max(80),
+  confidence: z.number().int().min(0).max(100),
   signals: z.object({
-    happiness: z.number().min(0).max(100),
-    energy: z.number().min(0).max(100),
-    mischief: z.number().min(0).max(100),
+    happiness: z.number().int().min(0).max(100),
+    energy: z.number().int().min(0).max(100),
+    mischief: z.number().int().min(0).max(100),
   }),
   observations: z.array(z.string()).max(5),
-  thought: z.string(),
-  summary: z.string(),
+  thought: z.string().max(160),
+  summary: z.string().max(200),
 });
 
 export type DogAnalysis = z.infer<typeof dogAnalysisSchema>;
