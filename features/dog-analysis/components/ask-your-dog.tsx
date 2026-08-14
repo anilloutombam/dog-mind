@@ -12,6 +12,10 @@ function conversationStorageKey(analysis: DogAnalysis) {
   return `dog-mind:conversation:${analysis.breedGuess}:${analysis.mood}:${analysis.thought}`;
 }
 
+function countStorageKey(analysis: DogAnalysis) {
+  return `${conversationStorageKey(analysis)}:count`;
+}
+
 export function AskYourDog({ analysis }: { analysis: DogAnalysis }) {
   const [question, setQuestion] = useState(""); const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false); const [error, setError] = useState("");
@@ -21,14 +25,28 @@ export function AskYourDog({ analysis }: { analysis: DogAnalysis }) {
   const conversationIdRef = useRef("");
   useEffect(() => {
     const storageKey = conversationStorageKey(analysis);
+    const storedCountKey = countStorageKey(analysis);
+    let hydrationTimer = 0;
     try {
       const existing = window.localStorage.getItem(storageKey);
       const id = existing ?? crypto.randomUUID();
       if (!existing) window.localStorage.setItem(storageKey, id);
       conversationIdRef.current = id;
+      const storedCount = Number.parseInt(window.localStorage.getItem(storedCountKey) ?? "0", 10);
+      hydrationTimer = window.setTimeout(() => setQuestionsAsked(Math.min(QUESTION_LIMIT, Math.max(0, storedCount || 0))), 0);
     } catch {
       conversationIdRef.current = crypto.randomUUID();
     }
+    function syncCount(event: StorageEvent) {
+      if (event.key !== storedCountKey) return;
+      const nextCount = Number.parseInt(event.newValue ?? "0", 10);
+      setQuestionsAsked(Math.min(QUESTION_LIMIT, Math.max(0, nextCount || 0)));
+    }
+    window.addEventListener("storage", syncCount);
+    return () => {
+      window.clearTimeout(hydrationTimer);
+      window.removeEventListener("storage", syncCount);
+    };
   }, [analysis]);
   useEffect(() => {
     if (retryAfter <= 0) return;
@@ -42,12 +60,23 @@ export function AskYourDog({ analysis }: { analysis: DogAnalysis }) {
       const response = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, conversationId: conversationIdRef.current, dog: { breedGuess: analysis.breedGuess, mood: analysis.mood, thought: analysis.thought } }) });
       const data = await response.json();
       if (!response.ok) {
+        if (data.code === "QUESTION_LIMIT_REACHED") {
+          setQuestionsAsked(QUESTION_LIMIT);
+          setRetryAfter(0);
+          setError(data.error || "This pup has answered all three questions.");
+          try { window.localStorage.setItem(countStorageKey(analysis), String(QUESTION_LIMIT)); } catch {}
+          return;
+        }
         const headerDelay = Number.parseInt(response.headers.get("Retry-After") ?? "", 10);
         const bodyDelay = typeof data.retryAfter === "number" ? Math.ceil(data.retryAfter) : 0;
         setRetryAfter(Math.max(0, bodyDelay, Number.isFinite(headerDelay) ? headerDelay : 0));
         throw new Error(data.error || "Dog chat failed.");
       }
-      setRetryAfter(0); setAnswer(data.answer); setQuestionsAsked((count) => count + 1); setQuestion("");
+      setRetryAfter(0); setAnswer(data.answer); setQuestionsAsked((count) => {
+        const nextCount = Math.min(QUESTION_LIMIT, count + 1);
+        try { window.localStorage.setItem(countStorageKey(analysis), String(nextCount)); } catch {}
+        return nextCount;
+      }); setQuestion("");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Dog chat failed."); } finally { setLoading(false); }
   }
   const remaining = QUESTION_LIMIT - questionsAsked;

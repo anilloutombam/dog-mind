@@ -14,13 +14,26 @@ const answerSchema = z.object({
 });
 const MAX_QUESTIONS = 3;
 const CONVERSATION_TTL_MS = 24 * 60 * 60 * 1_000;
+const MAX_CONVERSATIONS = 5_000;
 const conversations = new Map<string, { count: number; expiresAt: number }>();
+
+function pruneExpiredConversations(now: number) {
+  for (const [conversationId, value] of conversations) {
+    if (value.expiresAt <= now) conversations.delete(conversationId);
+  }
+}
 
 function reserveQuestion(conversationId: string) {
   const now = Date.now();
+  pruneExpiredConversations(now);
   const current = conversations.get(conversationId);
   const count = !current || current.expiresAt <= now ? 0 : current.count;
   if (count >= MAX_QUESTIONS) return false;
+  while (!current && conversations.size >= MAX_CONVERSATIONS) {
+    const oldestId = conversations.keys().next().value;
+    if (oldestId === undefined) break;
+    conversations.delete(oldestId);
+  }
   conversations.set(conversationId, { count: count + 1, expiresAt: now + CONVERSATION_TTL_MS });
   return true;
 }
@@ -42,7 +55,10 @@ export async function POST(request: Request) {
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "Ask your dog one short question." }, { status: 400 });
     if (!reserveQuestion(parsed.data.conversationId)) {
-      return NextResponse.json({ error: "This pup has answered all three questions for this conversation." }, { status: 429 });
+      return NextResponse.json(
+        { error: "This pup has answered all three questions for this conversation.", code: "QUESTION_LIMIT_REACHED", remaining: 0 },
+        { status: 429 },
+      );
     }
     reservedConversation = parsed.data.conversationId;
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
