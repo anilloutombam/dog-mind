@@ -1,6 +1,7 @@
 import { Check, RotateCcw } from "lucide-react";
 import type { DogAnalysis } from "../types";
 import { UploadedImage } from "./uploaded-image";
+import { VoicePlayer } from "./voice-player";
 
 type ResultCardProps = { analysis: DogAnalysis; previewUrl: string; onReset: () => void };
 
@@ -26,6 +27,7 @@ export function ResultCard({ analysis, previewUrl, onReset }: ResultCardProps) {
       </div>
       <p className="summary">{analysis.summary}</p>
       <div className="thought"><span>💭 INNER MONOLOGUE</span><blockquote>“{analysis.thought}”</blockquote></div>
+      <VoicePlayer text={analysis.thought} />
       <div className="meters">
         {Object.entries(analysis.signals).map(([label, value]) => (
           <div key={label}><span>{label}</span><strong>{value}%</strong><i><b style={{ width: `${value}%` }} /></i></div>
