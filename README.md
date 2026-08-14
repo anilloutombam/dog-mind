@@ -30,6 +30,8 @@ The experience is designed as a polished, responsive upload flow with image vali
 - Responsive desktop and mobile layouts
 - Reduced-motion accessibility support
 - Server-only API credentials
+- Progress-aware dog facts that rotate with each analysis stage
+- Screen-reader announcements for changing analysis facts
 
 ## Technology
 

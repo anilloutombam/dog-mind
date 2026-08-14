@@ -1,8 +1,10 @@
 import { Lightbulb } from "lucide-react";
+import { getDogFact } from "../constants";
 
 type AnalyzingCardProps = { progress: number };
 
 export function AnalyzingCard({ progress }: AnalyzingCardProps) {
+  const fact = getDogFact(progress);
   return (
     <div className="analyzing-card">
       <div className="analyzing-copy">
@@ -27,7 +29,10 @@ export function AnalyzingCard({ progress }: AnalyzingCardProps) {
         </div>
         <strong>{progress}%</strong>
       </div>
-      <div className="dog-fact"><Lightbulb size={22} /><p><strong>Did you know?</strong>Dogs read human faces better than we read theirs.<br />We’re leveling the playing field. 🐾</p></div>
+      <div className="dog-fact" aria-live="polite">
+        <Lightbulb size={22} />
+        <p key={fact} className="dog-fact-copy"><strong>Did you know?</strong>{fact}</p>
+      </div>
     </div>
   );
 }
