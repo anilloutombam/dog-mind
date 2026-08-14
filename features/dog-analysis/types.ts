@@ -1,5 +1,13 @@
+export const VOICE_STYLES = ["bright", "warm", "bold", "dramatic", "gentle", "gruff"] as const;
+
+export type VoiceStyle = (typeof VOICE_STYLES)[number];
+
 export type DogAnalysis = {
   isDog: boolean;
+  breedGuess: string;
+  breedConfidence: number;
+  dogSize: "small" | "medium" | "large" | "unknown";
+  voiceStyle: VoiceStyle;
   mood: string;
   confidence: number;
   signals: {
